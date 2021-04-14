@@ -6,23 +6,26 @@ import json
 class Tree():
   # Disable all the no-member violations in this class
   # pylint: disable=no-member
-  def __init__(self, org_id, resolve=False):
+  def __init__(self, org_id, resolve=True):
     self.org = f"organizations/{org_id}"
     self.resolve = resolve
 
   def build(self):
-    self.crm = discovery.build('cloudresourcemanager', 'v1')
-    request = self.crm.projects().list()
+    # v1 is the only version that supports project ancestry
+    self.crm_v1 = discovery.build('cloudresourcemanager', 'v1')
+    # v2 only supports folder name resolution
+    self.crm_v2 = discovery.build('cloudresourcemanager', 'v2')
+    request = self.crm_v1.projects().list()
     tree = {}
     while request:
       response = request.execute()
       for project in response.get('projects', []):
         ancestry = self.get_ancestry_names(project["projectId"])
-        print(ancestry)
+        # print(ancestry)
         if self.resolve:
-          ancestry = self.resolve_ancestry(ancestry)
+          ancestry = self.resolve_ancestry(ancestry, project)
         tree = self.graft(tree, ancestry, project)
-      request = self.crm.projects().list_next(previous_request=request, previous_response=response)
+      request = self.crm_v1.projects().list_next(previous_request=request, previous_response=response)
     return tree
   
   def graft(self, tree, ancestry, metadata):
@@ -35,10 +38,19 @@ class Tree():
       res = {ancestry.pop(): res}
     return res
   
-  def resolve_ancestry(self, ancestry):
+  def resolve_ancestry(self, ancestry, project):
     # TODO: Implement
-    return ancestry  
+    resolved = []
+    for name in ancestry:
+      if name.startswith("organizations"):
+        response = self.crm_v1.organizations().get(name=name).execute()
+      elif name.startswith("folders"):
+        response = self.crm_v2.folders().get(name=name).execute()
+      elif name.startswith("projects"):
+        response = {'displayName': project['projectId']}
+      resolved.append(response['displayName'])
+    return resolved  
   
   def get_ancestry_names(self, project_id):
-    response = self.crm.projects().getAncestry(projectId=project_id).execute()
+    response = self.crm_v1.projects().getAncestry(projectId=project_id).execute()
     return list(reversed([f"{i['resourceId']['type']}s/{i['resourceId']['id']}" for i in response["ancestor"]]))
