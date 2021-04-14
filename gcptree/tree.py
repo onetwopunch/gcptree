@@ -6,11 +6,11 @@ import json
 class Tree():
   # Disable all the no-member violations in this class
   # pylint: disable=no-member
-  def __init__(self, org_id, resolve=True):
+  def __init__(self, org_id, faster=False):
     self.org = f"organizations/{org_id}"
-    self.resolve = resolve
+    self.resolve = not faster
 
-  def build(self):
+  def build(self, include_project_metadata=False):
     # v1 is the only version that supports project ancestry
     self.crm_v1 = discovery.build('cloudresourcemanager', 'v1')
     # v2 only supports folder name resolution
@@ -21,10 +21,10 @@ class Tree():
       response = request.execute()
       for project in response.get('projects', []):
         ancestry = self.get_ancestry_names(project["projectId"])
-        # print(ancestry)
         if self.resolve:
           ancestry = self.resolve_ancestry(ancestry, project)
-        tree = self.graft(tree, ancestry, project)
+        metadata = project if include_project_metadata else {}
+        tree = self.graft(tree, ancestry, metadata)
       request = self.crm_v1.projects().list_next(previous_request=request, previous_response=response)
     return tree
   
@@ -39,7 +39,6 @@ class Tree():
     return res
   
   def resolve_ancestry(self, ancestry, project):
-    # TODO: Implement
     resolved = []
     for name in ancestry:
       if name.startswith("organizations"):
