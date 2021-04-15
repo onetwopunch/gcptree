@@ -8,7 +8,7 @@ class Tree():
   # Disable all the no-member violations in this class
   # pylint: disable=no-member
   def __init__(self, org_id, full_resource=False):
-    self.org = f"organizations/{org_id}"
+    self.org = "organizations/{}".format(org_id)
     self.resolve = not full_resource
     # v1 is the only version that supports project ancestry
     self.crm_v1 = discovery.build('cloudresourcemanager', 'v1')
@@ -74,10 +74,10 @@ class Tree():
     return resolved
 
   def get_ancestry_names(self, project_id):
-    cache_key = f"ancestry/{project_id}"
+    cache_key = "ancestry/{}".format(project_id)
     if self.cache.has(cache_key):
       return self.cache.get(cache_key)
     response = self.crm_v1.projects().getAncestry(projectId=project_id).execute()
-    names = list(reversed([f"{i['resourceId']['type']}s/{i['resourceId']['id']}" for i in response["ancestor"]]))
+    names = list(reversed(["{}s/{}".format(i['resourceId']['type'], i['resourceId']['id']) for i in response["ancestor"]]))
     self.cache.add(cache_key, names)
     return names

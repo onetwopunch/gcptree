@@ -26,7 +26,7 @@ class Cli:
   def build_tree(self):
     t = Tree(self.args.org_id[0], self.args.full_resource)
     if t.cache.is_empty():
-      print(f'Fetching GCP Resources, this may take a while (these results will be cached for an hour in {t.cache.filename})... ', file=sys.stderr)
+      print('Fetching GCP Resources, this may take a while (these results will be cached for an hour in {})... '.format(t.cache.filename), file=sys.stderr)
     tree = t.build()
     return tree
   
