@@ -1,62 +1,62 @@
 import argparse
 import json
+import sys
+from colorama import init, Fore, Style
 from .tree import Tree
 
-LEAF = "└──"
-LEAF_PLUS = "├──"
-SPACE = "│  "
+LEAF      = "└── "
+LEAF_PLUS = "├── "
+BAR_SPACE = "│   "
+SPACE     = "    "
 
 class Cli:
   def __init__(self):
+    init()
     parser = argparse.ArgumentParser(description='Print out a GCP org heirarchy', prog="gcptree")
     parser.add_argument('org_id', nargs=1, 
                         help='GCP Organization ID')
     parser.add_argument('--format', default="text",
                         help='Output format (json or text)')
-    parser.add_argument('--faster', action='store_const',
+    parser.add_argument('--full-resource', action='store_const',
                         const=True, default = False,
-                        help='API-parsable nodes where org and folder ids are not resolved')
+                        help='API-parsable nodes where org and folder resource names are not resolved, i.e org/123 instead of example.com')
 
     self.args = parser.parse_args()
   
-  def build_tree(self, include_project_metadata):
-    return Tree(self.args.org_id, self.args.faster).build(include_project_metadata)
+  def build_tree(self):
+    t = Tree(self.args.org_id, self.args.full_resource)
+    if t.cache.is_empty():
+      print(f'Fetching GCP Resources (these results will be cached for an hour in {t.cache.filename})... ', file=sys.stderr)
+    tree = t.build()
+    return tree
   
-  def format_node(self, node, level=0, is_last=False):
-    f = ""
-    f += SPACE * (level - 1)
-    if level > 0:
-      f += LEAF if is_last else LEAF_PLUS
-      f += " "
-    f += f"{node}\n" 
-    return f
-  
-  def formatted_tree(self, tree):
-    formatted = ""
-    level = 0
-    # Queue contains the key, entire subtree, it's level,and whether it's last
-    # e.g. ("example.com", {...}, 0, False) is an org node that is at the
-    # top level and it's not the last node in a list.
+  def is_project(self, obj):
+    return len(obj) > 0 and 'projectId' in obj
+
+  def walk(self, tree, prefix=""):
+    nodes = sorted(tree.keys())
+    for i, node in enumerate(nodes):
+      lchar, schar = (LEAF, SPACE) if i == len(nodes) - 1 else (LEAF_PLUS, BAR_SPACE)
+      if self.is_project(tree[node]):
+        formatted = node
+        if tree[node]['lifecycleState'] != 'ACTIVE':
+          formatted = Style.DIM + node + Style.RESET_ALL
+        print(prefix + lchar + formatted)
+      else:
+        print(prefix + lchar + node)
+        self.walk(tree[node], prefix + schar)
+
+  def print_tree(self, tree):
     org = list(tree.keys())[0]
-    queue = [(org, tree[org], 0, False)]
-    while queue:
-      key, subtree, level, is_last = queue.pop()
-      formatted += self.format_node(key, level, is_last)
-      if subtree:
-        # Since we're using a queue the one that appears
-        # last is enqueued first
-        last_key = list(subtree.keys())[0]
-        for k, v in subtree.items():
-          queue.append((k, v, level + 1, k == last_key))
-    return formatted
-  
+    print(Fore.GREEN + Style.BRIGHT + org + Style.RESET_ALL)
+    self.walk(tree[org])
+
   def run(self):
+    tree = self.build_tree()
     if self.args.format == 'json':
-      tree = self.build_tree(True)
       print(json.dumps(tree, sort_keys=True, indent=4))
     elif self.args.format == 'text':
-      tree = self.build_tree(False)
-      print(self.formatted_tree(tree))
+      self.print_tree(tree)
     else:
       print("Unsupported format")
 
@@ -64,4 +64,4 @@ if __name__ == "__main__":
   import json, sys
   with open(sys.argv[1]) as f:
     data = json.load(f)
-    print(Cli().formatted_tree(data))
+    Cli().print_tree(data)
