@@ -33,7 +33,7 @@ optional arguments:
 
 The minimum role you'll need **at the organization level** is:
 
-* `roles/browser'
+* `roles/browser`
 
 The actual permissions needed (in case you want a custom role) are:
 
