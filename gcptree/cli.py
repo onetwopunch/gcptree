@@ -24,9 +24,9 @@ class Cli:
     self.args = parser.parse_args()
   
   def build_tree(self):
-    t = Tree(self.args.org_id, self.args.full_resource)
+    t = Tree(self.args.org_id[0], self.args.full_resource)
     if t.cache.is_empty():
-      print(f'Fetching GCP Resources (these results will be cached for an hour in {t.cache.filename})... ', file=sys.stderr)
+      print(f'Fetching GCP Resources, this may take a while (these results will be cached for an hour in {t.cache.filename})... ', file=sys.stderr)
     tree = t.build()
     return tree
   
@@ -43,7 +43,7 @@ class Cli:
           formatted = Style.DIM + node + Style.RESET_ALL
         print(prefix + lchar + formatted)
       else:
-        print(prefix + lchar + node)
+        print(prefix + lchar + Style.BRIGHT + Fore.BLUE + node + Style.RESET_ALL)
         self.walk(tree[node], prefix + schar)
 
   def print_tree(self, tree):
@@ -59,9 +59,3 @@ class Cli:
       self.print_tree(tree)
     else:
       print("Unsupported format")
-
-if __name__ == "__main__":
-  import json, sys
-  with open(sys.argv[1]) as f:
-    data = json.load(f)
-    Cli().print_tree(data)

@@ -3,18 +3,22 @@ import os
 from datetime import datetime, timedelta
 from tempfile import gettempdir
 
-TIMESTAMP_FORMAT = "%Y-%m-%d-%H-%M"
 class Cache():
+  TIMESTAMP_FORMAT = "%Y-%m-%d-%H-%M"
+
   def __init__(self):
     self.filename = os.path.join(gettempdir(), "gcptree-cache.json")
-    self.data = {}
     if os.path.exists(self.filename):
       with open(self.filename, 'r') as f:
         data = json.load(f)
-        previous_timestamp = datetime.strptime(data['_timestamp'], TIMESTAMP_FORMAT)
-        if datetime.now()  > previous_timestamp - timedelta(hours=1):
-          self.data = data
-  
+        self.data = self.updated_data(data)
+        
+  def updated_data(self, data):
+    previous_timestamp = datetime.strptime(data['_timestamp'], self.TIMESTAMP_FORMAT)
+    if previous_timestamp > datetime.now() - timedelta(hours=1) :
+      return data
+    return {}
+
   def is_empty(self):
     return len(self.data) == 0
 
@@ -29,7 +33,7 @@ class Cache():
     self.data[key] = value
   
   def timestamp(self):
-    return datetime.now().strftime(TIMESTAMP_FORMAT)
+    return datetime.now().strftime(self.TIMESTAMP_FORMAT)
   
   def write(self):
     self.data['_timestamp'] = self.timestamp()

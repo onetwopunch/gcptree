@@ -10,6 +10,10 @@ class Tree():
   def __init__(self, org_id, full_resource=False):
     self.org = f"organizations/{org_id}"
     self.resolve = not full_resource
+    # v1 is the only version that supports project ancestry
+    self.crm_v1 = discovery.build('cloudresourcemanager', 'v1')
+    # v2 only supports folder name resolution
+    self.crm_v2 = discovery.build('cloudresourcemanager', 'v2')
     self.cache = Cache()
 
   def build(self):
@@ -19,15 +23,12 @@ class Tree():
     for project in self.cache.get('projects'):
       ancestry = self.get_ancestry_names(project["projectId"])
       if self.resolve:
-        ancestry = [self.cache.get(name) for name in ancestry]
+        ancestry = self.resolve_ancestry(ancestry, project)
       tree = self.graft(tree, ancestry, project)
     return tree
 
   def build_while_caching(self):
-    # v1 is the only version that supports project ancestry
-    self.crm_v1 = discovery.build('cloudresourcemanager', 'v1')
-    # v2 only supports folder name resolution
-    self.crm_v2 = discovery.build('cloudresourcemanager', 'v2')
+ 
     request = self.crm_v1.projects().list()
     tree = {}
     projects_to_cache = []
@@ -36,6 +37,8 @@ class Tree():
       for project in response.get('projects', []):
         projects_to_cache.append(project)
         ancestry = self.get_ancestry_names(project["projectId"])
+        if self.org not in ancestry:
+          continue
         if self.resolve:
           ancestry = self.resolve_ancestry(ancestry, project)
         tree = self.graft(tree, ancestry, project)
@@ -57,14 +60,17 @@ class Tree():
   def resolve_ancestry(self, ancestry, project):
     resolved = []
     for name in ancestry:
-      if name.startswith("organizations"):
-        response = self.crm_v1.organizations().get(name=name).execute()
-      elif name.startswith("folders"):
-        response = self.crm_v2.folders().get(name=name).execute()
-      elif name.startswith("projects"):
-        response = {'displayName': project['projectId']}
-      self.cache.add(name, response['displayName'])
-      resolved.append(response['displayName'])
+      if self.cache.has(name):
+        resolved.append(self.cache.get(name))
+      else:
+        if name.startswith("organizations"):
+          response = self.crm_v1.organizations().get(name=name).execute()
+        elif name.startswith("folders"):
+          response = self.crm_v2.folders().get(name=name).execute()
+        elif name.startswith("projects"):
+          response = {'displayName': project['projectId']}
+        self.cache.add(name, response['displayName'])
+        resolved.append(response['displayName'])
     return resolved
 
   def get_ancestry_names(self, project_id):
