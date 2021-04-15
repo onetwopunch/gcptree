@@ -13,6 +13,19 @@ pip install gcptree
 ```
 
 # Usage
+First make sure you are authenticated to `gcloud` and have your application default credentials set using:
+
+```
+gcloud auth login --update-adc
+```
+
+You just need your org id, which you can find in the GCP console under the popup for picking organizations. It should be a long number around 12 digits or so.
+
+```
+gcptree $ORG_ID
+```
+
+The flags are fairly simple and can be seen with the `--help` flag. 
 
 ```
 $ gcptree --help
