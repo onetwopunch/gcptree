@@ -2,7 +2,7 @@
 
 Like the unix `tree` command but for GCP Org Heirarchy.
 
-![](screenshot.png)
+![](https://raw.githubusercontent.com/onetwopunch/gcptree/main/screenshot.png)
 
 For a note on coloring, the org node is green, folders and blue, and projects that are not `ACTIVE` are dimmed. These styles won't show up if you redirect output and Windows is supported by virtue of the `colorama` package.
 
