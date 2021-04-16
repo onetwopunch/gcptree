@@ -6,7 +6,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
   long_description = f.read()
 
 setup(name='gcptree',
-      version='0.1.3',
+      version='0.1.4',
       description='List your GCP Org heirachy as a tree in JSON or Text',
       url='http://github.com/onetwopunch/gcptree',
       scripts=['bin/gcptree'],
