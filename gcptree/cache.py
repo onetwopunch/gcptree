@@ -7,6 +7,7 @@ class Cache():
   TIMESTAMP_FORMAT = "%Y-%m-%d-%H-%M"
 
   def __init__(self):
+    self.data = {}
     self.filename = os.path.join(gettempdir(), "gcptree-cache.json")
     if os.path.exists(self.filename):
       with open(self.filename, 'r') as f:
