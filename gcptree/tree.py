@@ -7,7 +7,7 @@ from .cache import Cache
 class Tree():
   # Disable all the no-member violations in this class
   # pylint: disable=no-member
-  def __init__(self, org_id, full_resource=False):
+  def __init__(self, org_id, full_resource=False, cache_inst=None):
     self.org = "organizations/{}".format(org_id)
     self.resolve = not full_resource
     # v1 is the only version that supports project ancestry
@@ -15,6 +15,9 @@ class Tree():
     # v2 only supports folder name resolution
     self.crm_v2 = discovery.build('cloudresourcemanager', 'v2')
     self.cache = Cache()
+    if cache_inst:
+      self.cache = cache_inst
+    self.should_update_cache = False
 
   def build(self):
     if self.cache.is_empty():
@@ -25,10 +28,11 @@ class Tree():
       if self.resolve:
         ancestry = self.resolve_ancestry(ancestry, project)
       tree = self.graft(tree, ancestry, project)
+    if self.should_update_cache:
+      self.cache.write()
     return tree
 
   def build_while_caching(self):
- 
     request = self.crm_v1.projects().list()
     tree = {}
     projects_to_cache = []
@@ -80,4 +84,5 @@ class Tree():
     response = self.crm_v1.projects().getAncestry(projectId=project_id).execute()
     names = list(reversed(["{}s/{}".format(i['resourceId']['type'], i['resourceId']['id']) for i in response["ancestor"]]))
     self.cache.add(cache_key, names)
+    self.should_update_cache = True
     return names

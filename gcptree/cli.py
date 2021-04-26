@@ -3,6 +3,7 @@ import json
 import sys
 from colorama import init, Fore, Style
 from .tree import Tree
+from .cache import Cache
 
 LEAF      = "└── "
 LEAF_PLUS = "├── "
@@ -20,15 +21,17 @@ class Cli:
     parser.add_argument('--full-resource', action='store_const',
                         const=True, default = False,
                         help='API-parsable nodes where org and folder resource names are not resolved, i.e org/123 instead of example.com')
+    parser.add_argument('--cache-ttl', default=1, type=int,
+                        help='Number of hours to keep the cache, default is 1.')
 
     self.args = parser.parse_args()
   
   def build_tree(self):
-    t = Tree(self.args.org_id[0], self.args.full_resource)
-    if t.cache.is_empty():
-      print('Fetching GCP Resources, this may take a while (these results will be cached for an hour in {})... '.format(t.cache.filename), file=sys.stderr)
-    tree = t.build()
-    return tree
+    cache = Cache(ttl_hours=self.args.cache_ttl)
+    if cache.is_empty():
+      print(cache.message(), file=sys.stderr)
+    t = Tree(self.args.org_id[0], full_resource=self.args.full_resource, cache_inst=cache)
+    return t.build()
   
   def is_project(self, obj):
     return len(obj) > 0 and 'projectId' in obj
