@@ -5,15 +5,14 @@ import os
 from .cache import Cache
 
 class Tree():
+  PROJECT_TYPE="cloudresourcemanager.googleapis.com/Project"
   # Disable all the no-member violations in this class
   # pylint: disable=no-member
   def __init__(self, org_id, full_resource=False, cache_inst=None):
     self.org = "organizations/{}".format(org_id)
-    self.resolve = not full_resource
-    # v1 is the only version that supports project ancestry
-    self.crm_v1 = discovery.build('cloudresourcemanager', 'v1')
-    # v2 only supports folder name resolution
-    self.crm_v2 = discovery.build('cloudresourcemanager', 'v2')
+    self.full_resource = full_resource
+    self.crm = discovery.build('cloudresourcemanager', 'v3')
+    self.cai = discovery.build('cloudasset','v1p5beta1')
     self.cache = Cache()
     if cache_inst:
       self.cache = cache_inst
@@ -23,30 +22,26 @@ class Tree():
     if self.cache.is_empty():
       return self.build_while_caching()
     tree = {}
-    for project in self.cache.get('projects'):
-      ancestry = self.get_ancestry_names(project["projectId"])
-      if self.resolve:
-        ancestry = self.resolve_ancestry(ancestry, project)
+    for p in self.cache.get('projects'):
+      ancestry, project = self.resolve_ancestry(reversed(p['ancestors']))
+      if self.full_resource:
+          ancestry = list(reversed(p['ancestors']))
       tree = self.graft(tree, ancestry, project)
-    if self.should_update_cache:
-      self.cache.write()
     return tree
 
   def build_while_caching(self):
-    request = self.crm_v1.projects().list()
+    request = self.cai.assets().list(parent=self.org, assetTypes=[self.PROJECT_TYPE])
     tree = {}
     projects_to_cache = []
     while request:
       response = request.execute()
-      for project in response.get('projects', []):
-        projects_to_cache.append(project)
-        ancestry = self.get_ancestry_names(project["projectId"])
-        if self.org not in ancestry:
-          continue
-        if self.resolve:
-          ancestry = self.resolve_ancestry(ancestry, project)
+      for p in response.get('assets', []):
+        projects_to_cache.append(p)
+        ancestry, project = self.resolve_ancestry(reversed(p['ancestors']))
+        if self.full_resource:
+          ancestry = list(reversed(p['ancestors']))
         tree = self.graft(tree, ancestry, project)
-      request = self.crm_v1.projects().list_next(previous_request=request, previous_response=response)
+      request = self.cai.assets().list_next(previous_request=request, previous_response=response)
     self.cache.add("projects", projects_to_cache)
     self.cache.write()
     return tree
@@ -61,28 +56,30 @@ class Tree():
       res = {ancestry.pop(): res}
     return res 
   
-  def resolve_ancestry(self, ancestry, project):
+  def resolve_ancestry(self, ancestry):
+    project_metadata = None
     resolved = []
     for name in ancestry:
       if self.cache.has(name):
-        resolved.append(self.cache.get(name))
+        entry = self.cache.get(name)
+        if name.startswith("projects"):
+          project_metadata = entry
+          resolved.append(entry['projectId'])
+        else:
+          resolved.append(entry)
       else:
+        response = {}
         if name.startswith("organizations"):
-          response = self.crm_v1.organizations().get(name=name).execute()
+          response = self.crm.organizations().get(name=name).execute()
+          self.cache.add(name, response['displayName'])
+          resolved.append(response['displayName'])
         elif name.startswith("folders"):
-          response = self.crm_v2.folders().get(name=name).execute()
+          response = self.crm.folders().get(name=name).execute()
+          self.cache.add(name, response['displayName'])
+          resolved.append(response['displayName'])
         elif name.startswith("projects"):
-          response = {'displayName': project['projectId']}
-        self.cache.add(name, response['displayName'])
-        resolved.append(response['displayName'])
-    return resolved
-
-  def get_ancestry_names(self, project_id):
-    cache_key = "ancestry/{}".format(project_id)
-    if self.cache.has(cache_key):
-      return self.cache.get(cache_key)
-    response = self.crm_v1.projects().getAncestry(projectId=project_id).execute()
-    names = list(reversed(["{}s/{}".format(i['resourceId']['type'], i['resourceId']['id']) for i in response["ancestor"]]))
-    self.cache.add(cache_key, names)
-    self.should_update_cache = True
-    return names
+          response = self.crm.projects().get(name=name).execute()
+          project_metadata = response
+          self.cache.add(name, response)
+          resolved.append(response['projectId'])
+    return resolved, project_metadata

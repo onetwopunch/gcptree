@@ -18,6 +18,9 @@ class Cache():
         self.data = self.updated_data(data)
         
   def updated_data(self, data):
+    # A v1 cache (using CRM instead of CAI) is not compatible, so we simply overwrite it
+    if '_v2' not in data:
+      return {}
     if '_ttl' in data:
       self.ttl_hours = data['_ttl']
     previous_timestamp = datetime.strptime(data['_timestamp'], self.TIMESTAMP_FORMAT)
@@ -44,6 +47,7 @@ class Cache():
   def write(self):
     self.data['_timestamp'] = self.timestamp()
     self.data['_ttl'] = self.ttl_hours
+    self.data['_v2'] = True
     with open(self.filename, 'w') as f:
       json.dump(self.data, f)
 
@@ -51,4 +55,23 @@ class Cache():
     hours = 'an hour'
     if self.ttl_hours > 1:
       hours = "{} hours". format(self.ttl_hours)
-    return 'Fetching GCP Resources, this may take a while (these results will be cached for {} in {})... '.format(hours, self.filename)
+    return 'INFO: Fetching GCP Resources, this may take a while (these results will be cached for {} in {})... '.format(hours, self.filename)
+
+class NoCache():
+  def is_empty(self):
+    return True
+
+  def has(self, key):
+    return False
+
+  def get(self, key):
+    return None
+
+  def add(self, key, value):
+    return None
+
+  def write(self):
+    pass
+
+  def message(self):
+    return 'INFO: Cache will not be used.'
