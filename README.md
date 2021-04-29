@@ -47,10 +47,4 @@ optional arguments:
 The minimum role you'll need **at the organization level** is:
 
 * `roles/browser`
-
-The actual permissions needed (in case you want a custom role) are:
-
-* `resourcemanager.projects.get`
-* `resourcemanager.projects.list`
-* `resourcemanager.folders.get`
-* `resourcemanager.organizations.get`
+* `roles/cloudasset.viewer`
