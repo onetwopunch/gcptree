@@ -6,15 +6,18 @@ from colorama import init, Fore, Style
 from .tree import Tree
 from .cache import Cache, NoCache
 
-LEAF      = "└── "
-LEAF_PLUS = "├── "
-BAR_SPACE = "│   "
-SPACE     = "    "
+VERSION = "0.2.0"
 
 class Cli:
+  LEAF      = "└── "
+  LEAF_PLUS = "├── "
+  BAR_SPACE = "│   "
+  SPACE     = "    "
+
   def __init__(self):
     init()
-    parser = argparse.ArgumentParser(description='Print out a GCP org heirarchy', prog="gcptree")
+
+    parser = argparse.ArgumentParser(description='Print out a GCP org heirarchy', prog="gcptree", epilog="Version: {}".format(VERSION))
     parser.add_argument('org_id', nargs=1, 
                         help='GCP Organization ID')
     parser.add_argument('--format', default="text",
@@ -50,7 +53,7 @@ class Cli:
   def walk(self, tree, prefix=""):
     nodes = sorted(tree.keys())
     for i, node in enumerate(nodes):
-      lchar, schar = (LEAF, SPACE) if i == len(nodes) - 1 else (LEAF_PLUS, BAR_SPACE)
+      lchar, schar = (self.LEAF, self.SPACE) if i == len(nodes) - 1 else (self.LEAF_PLUS, self.BAR_SPACE)
       if self.is_project(tree[node]):
         formatted = node
         if tree[node]['state'] != 'ACTIVE':
